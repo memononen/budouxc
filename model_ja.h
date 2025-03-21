@@ -1,3 +1,6 @@
+//
+// Genereted with convert.py, do not edit.
+//
 // Weights for UW1
 static uint64_t keys_ja_UW1[] = {
     0x3001, 0x3002, 0x3042, 0x3044, 0x3046, 0x3048, 0x304a, 0x304b, 0x304c, 0x304f, 
@@ -350,7 +353,7 @@ static int16_t values_ja_TW4[] = {
     -1767, 1130, 494, -174, -588, 1092, 170, -390, 2848, 2195, 
     1697, 255, 1258, 512, 256, -75, };
 
-bodoux_model_t model_ja = {
+budoux_model_t model_ja = {
     .base_score = -1479,
     .UW1 = { .keys = keys_ja_UW1, .values = values_ja_UW1, .count = 109, },
     .UW2 = { .keys = keys_ja_UW2, .values = values_ja_UW2, .count = 139, },

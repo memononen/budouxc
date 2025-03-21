@@ -1,3 +1,6 @@
+//
+// Genereted with convert.py, do not edit.
+//
 // Weights for UW1
 static uint64_t keys_th_UW1[] = {
     0x20, 0x25, 0x2b, 0x2d, 0x2e, 0x31, 0x32, 0x33, 0x35, 0x39, 
@@ -552,7 +555,7 @@ static int16_t values_th_TW4[] = {
     816, -299, -3516, -390, 56, -170, -31, 313, 1152, 496, 
     755, 289, 2114, 1044, -387, -823, 555, };
 
-bodoux_model_t model_th = {
+budoux_model_t model_th = {
     .base_score = -2200,
     .UW1 = { .keys = keys_th_UW1, .values = values_th_UW1, .count = 71, },
     .UW2 = { .keys = keys_th_UW2, .values = values_th_UW2, .count = 79, },

@@ -1,4 +1,4 @@
-#include "bodoux.h"
+#include "budoux.h"
 #include <stdint.h>
 
 // Models
@@ -115,7 +115,7 @@ utf_iter_t make_utf32_iter(const uint32_t* buf, int32_t buf_len)
 	};
 }
 
-static int32_t find_weight(const bodoux_weights_t* w, const uint64_t key)
+static int32_t find_weight(const budoux_weights_t* w, const uint64_t key)
 {
 	if (key < w->keys[0] || key > w->keys[w->count-1])
 		return 0;
@@ -136,17 +136,17 @@ static int32_t find_weight(const bodoux_weights_t* w, const uint64_t key)
 	return 0;
 }
 	
-static int32_t find_uni_weight(const bodoux_weights_t* w, const uint64_t cp0)
+static int32_t find_uni_weight(const budoux_weights_t* w, const uint64_t cp0)
 {
 	return find_weight(w, cp0);
 }
 
-static int32_t find_bi_weight(const bodoux_weights_t* w, const uint64_t cp0, const uint64_t cp1)
+static int32_t find_bi_weight(const budoux_weights_t* w, const uint64_t cp0, const uint64_t cp1)
 {
 	return find_weight(w, cp0 | (cp1 << 20));
 }
 
-static int32_t find_tri_weight(const bodoux_weights_t* w, const uint64_t cp0, const uint64_t cp1, const uint64_t cp2)
+static int32_t find_tri_weight(const budoux_weights_t* w, const uint64_t cp0, const uint64_t cp1, const uint64_t cp2)
 {
 	return find_weight(w, cp0 | (cp1 << 20) | (cp2 << 40));
 }
@@ -158,7 +158,7 @@ static int32_t find_tri_weight(const bodoux_weights_t* w, const uint64_t cp0, co
 	(a)[3] = (a)[4]; \
 	(a)[4] = (a)[5]
 
-static boundary_iterator_t boundary_iterator_init(const bodoux_model_t* model, utf_iter_t utf_iter)
+static boundary_iterator_t boundary_iterator_init(const budoux_model_t* model, utf_iter_t utf_iter)
 {
 	boundary_iterator_t bit = {
 		.model = model,
@@ -233,7 +233,7 @@ int32_t boundary_iterator_next(boundary_iterator_t* bit, int32_t* range_start, i
 	
 	uint32_t* buffer = bit->buffer;
 	int32_t* offset = bit->offset;
-	const bodoux_model_t* model = bit->model;
+	const budoux_model_t* model = bit->model;
 
 	*range_start = 0;
 	*range_end = 0;

@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "bodoux.h"
+#include "budoux.h"
 
 int main(void)
 {

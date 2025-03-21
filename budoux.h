@@ -1,30 +1,30 @@
-#ifndef BODOUX_H
-#define BODOUX_H
+#ifndef BUDOUX_H
+#define BUDOUX_H
 
 #include <stdint.h>
 
-typedef struct bodoux_weights_t {
+typedef struct budoux_weights_t {
 	uint64_t* keys;
 	int16_t* values;
 	int32_t count;
-} bodoux_weights_t;
+} budoux_weights_t;
 
-typedef struct bodoux_model_t  {
+typedef struct budoux_model_t  {
 	int32_t base_score;
-	bodoux_weights_t UW1;
-	bodoux_weights_t UW2;
-	bodoux_weights_t UW3;
-	bodoux_weights_t UW4;
-	bodoux_weights_t UW5;
-	bodoux_weights_t UW6;
-	bodoux_weights_t BW1;
-	bodoux_weights_t BW2;
-	bodoux_weights_t BW3;
-	bodoux_weights_t TW1;
-	bodoux_weights_t TW2;
-	bodoux_weights_t TW3;
-	bodoux_weights_t TW4;
-} bodoux_model_t;
+	budoux_weights_t UW1;
+	budoux_weights_t UW2;
+	budoux_weights_t UW3;
+	budoux_weights_t UW4;
+	budoux_weights_t UW5;
+	budoux_weights_t UW6;
+	budoux_weights_t BW1;
+	budoux_weights_t BW2;
+	budoux_weights_t BW3;
+	budoux_weights_t TW1;
+	budoux_weights_t TW2;
+	budoux_weights_t TW3;
+	budoux_weights_t TW4;
+} budoux_model_t;
 
 struct utf_iter_t;
 
@@ -42,7 +42,7 @@ typedef struct utf_iter_t {
 // Boundary iterator state, place in stack, and init with one of the initialization functions.
 // Does not allocate, no need to tear down.
 typedef struct boundary_iterator_t {
-	const bodoux_model_t* model;
+	const budoux_model_t* model;
 	utf_iter_t utf_iter;
 	uint32_t buffer[6];
 	int32_t offset[6];

@@ -1,3 +1,6 @@
+//
+// Genereted with convert.py, do not edit.
+//
 // Weights for UW1
 static uint64_t keys_zh_hant_UW1[] = {
     0x25, 0x28, 0x29, 0x2a, 0x3b, 0x41, 0x53, 0x61, 0x6f, 0x77, 
@@ -1208,7 +1211,7 @@ static int16_t values_zh_hant_TW4[] = {
     361, 110, -682, 582, 1604, 469, 2220, -710, 721, 729, 
     260, 17, };
 
-bodoux_model_t model_zh_hant = {
+budoux_model_t model_zh_hant = {
     .base_score = -93,
     .UW1 = { .keys = keys_zh_hant_UW1, .values = values_zh_hant_UW1, .count = 501, },
     .UW2 = { .keys = keys_zh_hant_UW2, .values = values_zh_hant_UW2, .count = 651, },

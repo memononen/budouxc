@@ -2,8 +2,8 @@ import argparse
 import json
 import os
 
-parser = argparse.ArgumentParser(description = 'A script to convert .json BodouX model to C.')
-parser.add_argument('model_file', help=  'Path to the BodouX model .json file.')
+parser = argparse.ArgumentParser(description = 'A script to convert .json BudouX model to C.')
+parser.add_argument('model_file', help=  'Path to the BudouX model .json file.')
 parser.add_argument('model_name', help=  'Name of the model in the output file.')
 parser.add_argument('out_file', help=  'Name of the output file.')
 args = parser.parse_args()
@@ -106,6 +106,10 @@ print('Writing model %s...' %(args.out_file))
 
 with open(args.out_file, "w") as f:
 
+    f.write('//\n')
+    f.write('// Genereted with convert.py, do not edit.\n')
+    f.write('//\n')
+
     num_UW1 = dump_unigram_weights(f, 'UW1')
     num_UW2 = dump_unigram_weights(f, 'UW2')
     num_UW3 = dump_unigram_weights(f, 'UW3')
@@ -124,7 +128,7 @@ with open(args.out_file, "w") as f:
 
     base_score = -sum(sum(g.values()) for g in model.values()) * 0.5
 
-    f.write('bodoux_model_t model_%s = {\n' %(args.model_name))
+    f.write('budoux_model_t model_%s = {\n' %(args.model_name))
     
     f.write('    .base_score = %d,\n' %base_score)
 

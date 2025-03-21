@@ -1,29 +1,6 @@
 #include "bodoux.h"
 #include <stdint.h>
 
-typedef struct bodoux_weights_t {
-	uint64_t* keys;
-	int16_t* values;
-	int32_t count;
-} bodoux_weights_t;
-
-typedef struct bodoux_model_t  {
-	int32_t base_score;
-	bodoux_weights_t UW1;
-	bodoux_weights_t UW2;
-	bodoux_weights_t UW3;
-	bodoux_weights_t UW4;
-	bodoux_weights_t UW5;
-	bodoux_weights_t UW6;
-	bodoux_weights_t BW1;
-	bodoux_weights_t BW2;
-	bodoux_weights_t BW3;
-	bodoux_weights_t TW1;
-	bodoux_weights_t TW2;
-	bodoux_weights_t TW3;
-	bodoux_weights_t TW4;
-} bodoux_model_t;
-
 // Models
 #include "model_ja.h"
 #include "model_zh_hans.h"
@@ -70,19 +47,7 @@ static uint32_t decutf8(uint32_t* state, uint32_t* codep, uint8_t byte)
 	return *state;
 }
 
-struct utf8_iter_t;
-
-typedef uint32_t (*get_func_t)(struct utf8_iter_t* iter);
-
-typedef struct utf8_iter_t {
-	const char* buf;
-	int32_t pos;
-	int32_t done;
-	int32_t empty_count;
-	get_func_t get;
-} utf8_iter_t;
-
-static uint32_t get_empty(utf8_iter_t* iter)
+static uint32_t get_empty(utf_iter_t* iter)
 {
 	iter->empty_count--;
 	if (iter->empty_count <= 0) 
@@ -90,37 +55,63 @@ static uint32_t get_empty(utf8_iter_t* iter)
 	return 0;    
 }
 
-static uint32_t get_value(utf8_iter_t* iter)
+static uint32_t get_utf8(utf_iter_t* iter)
 {
 	uint32_t state = 0;
 	uint32_t cp = 0;
+	const char* buf = iter->buf;
 
 	// Parse utf-8 code point
-	decutf8(&state, &cp, iter->buf[iter->pos++]);
-	if (state && iter->buf[iter->pos])
-		decutf8(&state, &cp, iter->buf[iter->pos++]);
-	if (state && iter->buf[iter->pos])
-		decutf8(&state, &cp, iter->buf[iter->pos++]);
-	if (state && iter->buf[iter->pos])
-		decutf8(&state, &cp, iter->buf[iter->pos++]);
+	decutf8(&state, &cp, buf[iter->pos++]);
+	if (state && iter->pos < iter->buf_len && buf[iter->pos])
+		decutf8(&state, &cp, buf[iter->pos++]);
+	if (state && iter->pos < iter->buf_len && buf[iter->pos])
+		decutf8(&state, &cp, buf[iter->pos++]);
+	if (state && iter->pos < iter->buf_len && buf[iter->pos])
+		decutf8(&state, &cp, buf[iter->pos++]);
 	if (state != UTF8_ACCEPT)
 		cp = 0;
 
 	// If reached end of string, start emitting empty code points.
-	if (iter->buf[iter->pos] == '\0')
+	if (iter->pos >= iter->buf_len || buf[iter->pos] == '\0')
 		iter->get = &get_empty;
 
 	return cp;
 }
 
-utf8_iter_t make_utf8_iter(const char* buf, int32_t empty_count)
+static uint32_t get_utf32(utf_iter_t* iter)
 {
-	return (utf8_iter_t) {
+	const uint32_t* buf = iter->buf;
+	uint32_t cp = buf[iter->pos++];
+
+	// If reached end of string, start emitting empty code points.
+	if (iter->pos >= iter->buf_len || buf[iter->pos] == 0)
+		iter->get = &get_empty;
+
+	return cp;
+}
+
+utf_iter_t make_utf8_iter(const char* buf, int32_t buf_len)
+{
+	const int32_t is_empty = !buf || buf[0] == '\0' || buf_len == 0;
+	return (utf_iter_t) {
 		.buf = buf,
+		.buf_len = buf_len < 0 ? INT32_MAX : buf_len,
 		.pos = 0,
-		.empty_count = empty_count,
 		.done = 0,
-		.get = (buf && buf[0]) ? &get_value : &get_empty,
+		.get = is_empty ? &get_empty : &get_utf8,
+	};
+}
+
+utf_iter_t make_utf32_iter(const uint32_t* buf, int32_t buf_len)
+{
+	const int32_t is_empty = !buf || buf[0] == '\0' || buf_len == 0;
+	return (utf_iter_t) {
+		.buf = buf,
+		.buf_len = buf_len < 0 ? INT32_MAX : buf_len,
+		.pos = 0,
+		.done = 0,
+		.get = is_empty ? &get_empty : &get_utf32,
 	};
 }
 
@@ -160,33 +151,98 @@ static int32_t find_tri_weight(const bodoux_weights_t* w, const uint64_t cp0, co
 	return find_weight(w, cp0 | (cp1 << 20) | (cp2 << 40));
 }
 
+#define ROLL(a) \
+	(a)[0] = (a)[1]; \
+	(a)[1] = (a)[2]; \
+	(a)[2] = (a)[3]; \
+	(a)[3] = (a)[4]; \
+	(a)[4] = (a)[5]
 
-static void parse_boundaries(const bodoux_model_t* model, const char* text, char* boundaries)
+static boundary_iterator_t boundary_iterator_init(const bodoux_model_t* model, utf_iter_t utf_iter)
 {
-	utf8_iter_t iter = make_utf8_iter(text, 2);
+	boundary_iterator_t bit = {
+		.model = model,
+		.utf_iter = utf_iter,
+	};
+	bit.utf_iter.empty_count = 2;
 
-	uint32_t buffer[6] = { 0 };
-	int32_t offset[6] = { 0 };
-	#define ROLL(a) \
-		(a)[0] = (a)[1]; \
-		(a)[1] = (a)[2]; \
-		(a)[2] = (a)[3]; \
-		(a)[3] = (a)[4]; \
-		(a)[4] = (a)[5]
-	
-	// prebuffer
+	// pre buffer
 	for (int32_t i = 0; i < 2; i++) {
-		ROLL(offset);
-		offset[5] = iter.pos;
-		ROLL(buffer);
-		buffer[5] = iter.get(&iter);
+		ROLL(bit.offset);
+		bit.offset[5] = bit.utf_iter.pos;
+		ROLL(bit.buffer);
+		bit.buffer[5] = bit.utf_iter.get(&bit.utf_iter);
 	}
+
+	return bit;
+}
+
+boundary_iterator_t boundary_iterator_init_ja_utf8(const char* text, int32_t len)
+{
+	utf_iter_t iter = make_utf8_iter(text, len);
+	return boundary_iterator_init(&model_ja, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_ja_utf32(const uint32_t* text, int32_t len)
+{
+	utf_iter_t iter = make_utf32_iter(text, len);
+	return boundary_iterator_init(&model_ja, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_zh_hans_utf8(const char* text, int32_t len)
+{
+	utf_iter_t iter = make_utf8_iter(text, len);
+	return boundary_iterator_init(&model_zh_hans, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_zh_hans_utf32(const uint32_t* text, int32_t len)
+{
+	utf_iter_t iter = make_utf32_iter(text, len);
+	return boundary_iterator_init(&model_zh_hans, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_zh_hant_utf8(const char* text, int32_t len)
+{
+	utf_iter_t iter = make_utf8_iter(text, len);
+	return boundary_iterator_init(&model_zh_hant, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_zh_hant_utf32(const uint32_t* text, int32_t len)
+{
+	utf_iter_t iter = make_utf32_iter(text, len);
+	return boundary_iterator_init(&model_zh_hant, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_th_utf8(const char* text, int32_t len)
+{
+	utf_iter_t iter = make_utf8_iter(text, len);
+	return boundary_iterator_init(&model_th, iter);
+}
+
+boundary_iterator_t boundary_iterator_init_th_utf32(const uint32_t* text, int32_t len)
+{
+	utf_iter_t iter = make_utf32_iter(text, len);
+	return boundary_iterator_init(&model_th, iter);
+}
+
+
+int32_t boundary_iterator_next(boundary_iterator_t* bit, int32_t* range_start, int32_t* range_end)
+{
+	if (bit->done)
+		return 0;
 	
-	while (!iter.done) {
+	uint32_t* buffer = bit->buffer;
+	int32_t* offset = bit->offset;
+	const bodoux_model_t* model = bit->model;
+
+	*range_start = 0;
+	*range_end = 0;
+	
+	while (!bit->utf_iter.done) {
 		ROLL(offset);
-		offset[5] = iter.pos;
+		offset[5] = bit->utf_iter.pos;
 		ROLL(buffer);
-		buffer[5] = iter.get(&iter);
+		buffer[5] = bit->utf_iter.get(&bit->utf_iter);
 
 		// buffer[0] is -3, buffer[3] = 0, buffer[5] = +2;
 		int score = model->base_score;
@@ -203,27 +259,35 @@ static void parse_boundaries(const bodoux_model_t* model, const char* text, char
 		score += find_tri_weight(&model->TW1, buffer[1],buffer[2],buffer[3]);
 		score += find_tri_weight(&model->TW1, buffer[2],buffer[3],buffer[4]);
 		score += find_tri_weight(&model->TW1, buffer[3],buffer[4],buffer[5]);
-		if (score > 0)
-			boundaries[offset[3]] = 1;
+		if (score > 0) {
+			*range_start = bit->range_start;
+			*range_end = offset[3];
+			bit->range_start = offset[3];
+			break;
+		}
 	}
+
+	if (bit->utf_iter.done) {
+		*range_start = bit->range_start;
+		*range_end = offset[3+1]; // 3 is the start of last processed codepoint, 3+1 is null term.
+		bit->done = 1;
+	}
+	
+	return *range_start != *range_end;
 }
 
-void parse_boundaries_ja(const char* text, char* boundaries)
+int32_t utf8_to_utf32(const char* utf8, uint32_t* utf32)
 {
-	parse_boundaries(&model_ja, text, boundaries);
-}
-
-void parse_boundaries_zh_hans(const char* text, char* boundaries)
-{
-	parse_boundaries(&model_zh_hans, text, boundaries);
-}
-
-void parse_boundaries_zh_hant(const char* text, char* boundaries)
-{
-	parse_boundaries(&model_zh_hant, text, boundaries);
-}
-
-void parse_boundaries_th(const char* text, char* boundaries)
-{
-	parse_boundaries(&model_th, text, boundaries);
+	uint32_t state = 0;
+	uint32_t cp = 0;
+	int32_t count = 0;
+	while (*utf8) {
+		if (decutf8(&state, &cp, *utf8++))
+			continue;
+		if (utf32)
+			utf32[count++] = cp;
+	}
+	if (utf32)
+		utf32[count] = 0;
+	return count;
 }

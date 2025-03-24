@@ -34,7 +34,7 @@ Outputs:
 
 Models
 --
-The `models` folder contains json files from BodouX project. They have been converted to C headers using the `covert.py` script:
+The `models` folder contains json files from BudouX project. They have been converted to C headers using the `covert.py` script:
 ```python
 python .\convert.py .\models\zh-hant.json zh_hant model_zh_hant.h
 ```

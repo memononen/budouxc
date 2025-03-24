@@ -228,7 +228,7 @@ boundary_iterator_t boundary_iterator_init_th_utf32(const uint32_t* text, int32_
 
 int32_t boundary_iterator_next(boundary_iterator_t* bit, int32_t* range_start, int32_t* range_end)
 {
-	if (bit->done)
+	if (!bit->model || !bit->utf_iter.buf || bit->done)
 		return 0;
 	
 	uint32_t* buffer = bit->buffer;
@@ -259,10 +259,12 @@ int32_t boundary_iterator_next(boundary_iterator_t* bit, int32_t* range_start, i
 		score += find_tri_weight(&model->TW1, buffer[1],buffer[2],buffer[3]);
 		score += find_tri_weight(&model->TW1, buffer[2],buffer[3],buffer[4]);
 		score += find_tri_weight(&model->TW1, buffer[3],buffer[4],buffer[5]);
-		if (score > 0) {
+		
+		int32_t pos_end = offset[3];
+		if (score > 0 && bit->range_start != pos_end) {
 			*range_start = bit->range_start;
-			*range_end = offset[3];
-			bit->range_start = offset[3];
+			*range_end = pos_end;
+			bit->range_start = pos_end;
 			break;
 		}
 	}
@@ -273,7 +275,7 @@ int32_t boundary_iterator_next(boundary_iterator_t* bit, int32_t* range_start, i
 		bit->done = 1;
 	}
 	
-	return *range_start != *range_end;
+	return 1;
 }
 
 int32_t utf8_to_utf32(const char* utf8, uint32_t* utf32)
